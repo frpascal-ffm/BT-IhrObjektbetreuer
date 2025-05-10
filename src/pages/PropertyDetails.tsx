@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { mockProperties, mockJobs } from '@/mock-data';
 import { Property, Job } from '@/types';
-import { Building, Calendar, ListTodo, Save, Trash2, Edit, ArrowLeft } from 'lucide-react';
+import { Building, Calendar, ListTodo, Save, Trash2, Edit, ArrowLeft, Plus } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
