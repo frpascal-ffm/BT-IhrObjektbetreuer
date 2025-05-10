@@ -95,10 +95,11 @@ const JobDetails = () => {
   // Handle add note
   const handleAddNote = () => {
     if (noteText.trim().length > 0) {
+      const now = new Date();
       const newNote = {
         id: `note-${Date.now()}`,
         text: noteText,
-        createdAt: new Date()
+        createdAt: now
       };
       
       setJobNotes(prev => [newNote, ...prev]);
@@ -107,7 +108,7 @@ const JobDetails = () => {
       
       toast({
         title: "Notiz hinzugefügt",
-        description: "Die Notiz wurde erfolgreich hinzugefügt.",
+        description: `Die Notiz wurde erfolgreich am ${now.toLocaleDateString()} um ${now.toLocaleTimeString()} hinzugefügt.`,
       });
     }
   };
@@ -429,7 +430,7 @@ const JobDetails = () => {
                           <div key={note.id} className="bg-gray-50 p-4 rounded-md border">
                             <p className="text-sm text-gray-700">{note.text}</p>
                             <p className="text-xs text-gray-500 mt-2">
-                              {note.createdAt.toLocaleDateString()} um {note.createdAt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              {note.createdAt.toLocaleDateString()} um {note.createdAt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}
                             </p>
                           </div>
                         ))}
