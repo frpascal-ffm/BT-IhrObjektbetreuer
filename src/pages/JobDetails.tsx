@@ -11,11 +11,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { mockJobs, mockProperties } from '@/mock-data';
 import { Job, JobStatus, statusNameMap } from '@/types';
-import { ArrowLeft, Building, Calendar, Edit, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Building, Calendar, Edit, MessageSquarePlus, Save, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import StatusBadge from '@/components/StatusBadge';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  Collapsible, 
+  CollapsibleContent, 
+  CollapsibleTrigger 
+} from '@/components/ui/collapsible';
 
 const JobDetails = () => {
   const { id } = useParams();
@@ -28,6 +33,12 @@ const JobDetails = () => {
   const [editedJob, setEditedJob] = useState<Job | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
+  // New state for notes
+  const [noteText, setNoteText] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [jobNotes, setJobNotes] = useState<{id: string, text: string, createdAt: Date}[]>([]);
+  const [isNotesOpen, setIsNotesOpen] = useState(true);
+  
   const properties = mockProperties;
   
   // Find the job based on the ID from the URL
@@ -36,6 +47,22 @@ const JobDetails = () => {
     if (foundJob) {
       setJob(foundJob);
       setEditedJob({ ...foundJob });
+      
+      // Initialize with some example notes if needed
+      if (foundJob.id === "job-1") {
+        setJobNotes([
+          { 
+            id: 'note-1', 
+            text: 'Hausmeister kontaktiert, kommt am Freitag vorbei.', 
+            createdAt: new Date(2025, 4, 5)  // May 5, 2025
+          },
+          { 
+            id: 'note-2', 
+            text: 'Material bestellt, Lieferung in 3 Tagen.', 
+            createdAt: new Date(2025, 4, 7)  // May 7, 2025
+          }
+        ]);
+      }
     }
   }, [id]);
   
@@ -63,6 +90,26 @@ const JobDetails = () => {
       variant: "destructive",
     });
     navigate('/jobs');
+  };
+  
+  // Handle add note
+  const handleAddNote = () => {
+    if (noteText.trim().length > 0) {
+      const newNote = {
+        id: `note-${Date.now()}`,
+        text: noteText,
+        createdAt: new Date()
+      };
+      
+      setJobNotes(prev => [newNote, ...prev]);
+      setNoteText('');
+      setIsAddingNote(false);
+      
+      toast({
+        title: "Notiz hinzugefügt",
+        description: "Die Notiz wurde erfolgreich hinzugefügt.",
+      });
+    }
   };
   
   if (!job) {
@@ -315,7 +362,90 @@ const JobDetails = () => {
             </CardContent>
           </Card>
           
-          {/* Additional sections could be added here: history, attachments, etc. */}
+          {/* Notes Section */}
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen}>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Notizen</CardTitle>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-9 p-0">
+                      <span className="sr-only">Toggle</span>
+                      {isNotesOpen ? 
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
+                          <path d="M4 6L7.5 9.5L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+                        </svg>
+                       : 
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
+                          <path d="M11 9L7.5 5.5L4 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+                        </svg>
+                      }
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    {!isAddingNote ? (
+                      <Button 
+                        onClick={() => setIsAddingNote(true)} 
+                        variant="outline" 
+                        className="mb-4 w-full"
+                      >
+                        <MessageSquarePlus className="mr-2 h-4 w-4" />
+                        Neue Notiz hinzufügen
+                      </Button>
+                    ) : (
+                      <div className="mb-4 space-y-2">
+                        <Textarea 
+                          placeholder="Notiz eingeben..." 
+                          value={noteText}
+                          onChange={(e) => setNoteText(e.target.value)}
+                          rows={3}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setIsAddingNote(false);
+                              setNoteText('');
+                            }}
+                          >
+                            Abbrechen
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            onClick={handleAddNote}
+                          >
+                            Speichern
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {jobNotes.length > 0 ? (
+                      <div className="space-y-4">
+                        {jobNotes.map((note) => (
+                          <div key={note.id} className="bg-gray-50 p-4 rounded-md border">
+                            <p className="text-sm text-gray-700">{note.text}</p>
+                            <p className="text-xs text-gray-500 mt-2">
+                              {note.createdAt.toLocaleDateString()} um {note.createdAt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-500 py-6">
+                        <p>Noch keine Notizen vorhanden</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </CardHeader>
+          </Card>
+          
+          {/* Additional sections could be added here */}
         </main>
       </div>
       
