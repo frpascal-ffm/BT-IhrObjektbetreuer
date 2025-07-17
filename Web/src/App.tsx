@@ -18,7 +18,23 @@ import Profile from "./pages/Profile";
 import Employees from "./pages/Employees";
 import MeineAuftraege from "./pages/MeineAuftraege";
 
-const queryClient = new QueryClient();
+// Optimierte QueryClient-Konfiguration
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Standard-Caching-Einstellungen
+      staleTime: 5 * 60 * 1000, // 5 Minuten - Daten sind 5 Minuten "frisch"
+      gcTime: 10 * 60 * 1000, // 10 Minuten - Cache wird 10 Minuten behalten
+      refetchOnWindowFocus: false, // Kein Refetch beim Fokuswechsel
+      refetchOnMount: false, // Kein Refetch beim Mounten wenn Daten existieren
+      retry: 1, // Nur 1 Retry bei Fehlern
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponentieller Backoff
+    },
+    mutations: {
+      retry: 1, // Nur 1 Retry bei Mutations
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

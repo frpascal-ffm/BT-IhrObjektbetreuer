@@ -10,7 +10,9 @@ import {
   where, 
   orderBy,
   Timestamp,
-  serverTimestamp 
+  serverTimestamp,
+  onSnapshot,
+  Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { 
@@ -87,6 +89,18 @@ export const propertiesService = {
     })) as Property[];
   },
 
+  // Real-time subscription methods
+  subscribeToAll(callback: (properties: Property[]) => void, onError?: (error: any) => void): Unsubscribe {
+    const q = query(collection(db, 'properties'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (querySnapshot) => {
+      const properties = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Property[];
+      callback(properties);
+    }, onError);
+  },
+
   async getById(id: string): Promise<Property | null> {
     const docRef = doc(db, 'properties', id);
     const docSnap = await getDoc(docRef);
@@ -128,6 +142,62 @@ export const jobsService = {
       id: doc.id,
       ...doc.data()
     })) as Job[];
+  },
+
+  // Real-time subscription methods
+  subscribeToAll(callback: (jobs: Job[]) => void, onError?: (error: any) => void): Unsubscribe {
+    const q = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (querySnapshot) => {
+      const jobs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Job[];
+      callback(jobs);
+    }, onError);
+  },
+
+  subscribeToByProperty(propertyId: string, callback: (jobs: Job[]) => void, onError?: (error: any) => void): Unsubscribe {
+    const q = query(
+      collection(db, 'jobs'),
+      where('propertyId', '==', propertyId),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, (querySnapshot) => {
+      const jobs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Job[];
+      callback(jobs);
+    }, onError);
+  },
+
+  subscribeToByStatus(status: Job['status'], callback: (jobs: Job[]) => void, onError?: (error: any) => void): Unsubscribe {
+    const q = query(
+      collection(db, 'jobs'),
+      where('status', '==', status),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, (querySnapshot) => {
+      const jobs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Job[];
+      callback(jobs);
+    }, onError);
+  },
+
+  subscribeToByAssignedTo(assignedTo: string, callback: (jobs: Job[]) => void, onError?: (error: any) => void): Unsubscribe {
+    const q = query(
+      collection(db, 'jobs'),
+      where('assignedTo', '==', assignedTo)
+    );
+    return onSnapshot(q, (querySnapshot) => {
+      const jobs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Job[];
+      callback(jobs);
+    }, onError);
   },
 
   async getById(id: string): Promise<Job | null> {
@@ -216,6 +286,18 @@ export const employeesService = {
       id: doc.id,
       ...doc.data()
     })) as Employee[];
+  },
+
+  // Real-time subscription methods
+  subscribeToAll(callback: (employees: Employee[]) => void, onError?: (error: any) => void): Unsubscribe {
+    const q = query(collection(db, 'employees'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (querySnapshot) => {
+      const employees = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Employee[];
+      callback(employees);
+    }, onError);
   },
 
   async getById(id: string): Promise<Employee | null> {

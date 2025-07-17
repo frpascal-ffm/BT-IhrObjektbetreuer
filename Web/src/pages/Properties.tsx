@@ -133,6 +133,10 @@ const Properties = () => {
             if (target instanceof HTMLElement && target.closest('.pac-container')) {
               event.preventDefault();
             }
+            // Also prevent closing if click is on loading spinner or error message
+            if (target instanceof HTMLElement && target.closest('.animate-spin')) {
+              event.preventDefault();
+            }
           }}
         >
           <DialogHeader>
@@ -156,13 +160,18 @@ const Properties = () => {
               <AddressAutocomplete
                 id="address"
                 value={newProperty.address || ''}
-                onChange={(value) => {
+                onChange={(value, placeDetails) => {
                   setNewProperty({
                     ...newProperty,
                     address: value,
                   });
+                  
+                  // Optional: Store additional place details if needed
+                  if (placeDetails) {
+                    console.log('Selected place details:', placeDetails);
+                  }
                 }}
-                placeholder="Straße und Hausnummer"
+                placeholder="Straße und Hausnummer eingeben..."
                 required
                 disabled={createPropertyMutation.isPending}
               />

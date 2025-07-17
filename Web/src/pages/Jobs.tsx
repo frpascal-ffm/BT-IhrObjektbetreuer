@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { Job, JobStatus, Property, statusNameMap } from '@/types';
 import { Plus, Calendar, Search, ListTodo, Building, User, ChevronRight, Edit, RefreshCw, Trash2, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { jobsService, propertiesService, employeesService, type Job as FirestoreJob } from '@/lib/firestore';
+import { jobsService, propertiesService, employeesService, type Job as FirestoreJob, type Employee } from '@/lib/firestore';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,29 +44,63 @@ const Jobs = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Fetch data using React Query
-  const { data: jobs = [], isLoading: jobsLoading } = useQuery({
-    queryKey: ['jobs'],
-    queryFn: jobsService.getAll,
-  });
+  // Real-time data state
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
 
-  const { data: properties = [], isLoading: propertiesLoading } = useQuery({
-    queryKey: ['properties'],
-    queryFn: propertiesService.getAll,
-  });
+  // Real-time subscriptions
+  useEffect(() => {
+    setLoading(true);
+    
+    // Subscribe to real-time updates with error handling
+    const unsubscribeJobs = jobsService.subscribeToAll((jobsData) => {
+      setJobs(jobsData);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error in jobs subscription:', error);
+      toast.error('Fehler beim Laden der Aufträge');
+      setLoading(false);
+    });
 
-  const { data: employees = [], isLoading: employeesLoading } = useQuery({
-    queryKey: ['employees'],
-    queryFn: employeesService.getAll,
-  });
+    const unsubscribeProperties = propertiesService.subscribeToAll((propertiesData) => {
+      setProperties(propertiesData);
+    }, (error) => {
+      console.error('Error in properties subscription:', error);
+      toast.error('Fehler beim Laden der Liegenschaften');
+    });
 
-  const loading = jobsLoading || propertiesLoading || employeesLoading;
+    const unsubscribeEmployees = employeesService.subscribeToAll((employeesData) => {
+      setEmployees(employeesData);
+    }, (error) => {
+      console.error('Error in employees subscription:', error);
+      toast.error('Fehler beim Laden der Mitarbeiter');
+    });
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribeJobs();
+      unsubscribeProperties();
+      unsubscribeEmployees();
+    };
+  }, []);
+
+  // Manual refresh function (now just shows a toast since data updates automatically)
+  const handleRefresh = () => {
+    setIsRefetching(true);
+    // Simulate a brief loading state for user feedback
+    setTimeout(() => {
+      setIsRefetching(false);
+      toast.success('Daten sind aktuell');
+    }, 500);
+  };
 
   // Mutations
   const createJobMutation = useMutation({
     mutationFn: jobsService.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
       setDialogOpen(false);
       setNewJob({
         title: '',
@@ -90,7 +124,6 @@ const Jobs = () => {
     mutationFn: ({ id, data }: { id: string; data: Partial<FirestoreJob> }) => 
       jobsService.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
       setStatusDropdownJobId(null);
       toast.success('Auftrag erfolgreich aktualisiert');
     },
@@ -103,7 +136,6 @@ const Jobs = () => {
   const deleteJobMutation = useMutation({
     mutationFn: jobsService.delete,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
       setDeleteDialogJob(null);
       toast.success('Auftrag erfolgreich gelöscht');
     },
@@ -225,6 +257,22 @@ const Jobs = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
+              </div>
+              {/* Show real-time indicator and manual refresh button */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center text-sm text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
+                  Live
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isRefetching}
+                  title="Daten manuell aktualisieren"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -609,18 +657,49 @@ function JobsFilterWrapper({ filterType }: { filterType: 'wasserschaden' | 'sond
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Fetch data using React Query
-  const { data: allJobs = [], isLoading: jobsLoading } = useQuery({
-    queryKey: ['jobs'],
-    queryFn: jobsService.getAll,
-  });
+  // Real-time data state
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isRefetching, setIsRefetching] = useState(false);
 
-  const { data: allProperties = [], isLoading: propertiesLoading } = useQuery({
-    queryKey: ['properties'],
-    queryFn: propertiesService.getAll,
-  });
+  // Real-time subscriptions
+  useEffect(() => {
+    setLoading(true);
+    
+    // Subscribe to real-time updates with error handling
+    const unsubscribeJobs = jobsService.subscribeToAll((jobsData) => {
+      setAllJobs(jobsData);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error in jobs subscription:', error);
+      toast.error('Fehler beim Laden der Aufträge');
+      setLoading(false);
+    });
 
-  const loading = jobsLoading || propertiesLoading;
+    const unsubscribeProperties = propertiesService.subscribeToAll((propertiesData) => {
+      setAllProperties(propertiesData);
+    }, (error) => {
+      console.error('Error in properties subscription:', error);
+      toast.error('Fehler beim Laden der Liegenschaften');
+    });
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribeJobs();
+      unsubscribeProperties();
+    };
+  }, []);
+
+  // Manual refresh function (now just shows a toast since data updates automatically)
+  const handleRefresh = () => {
+    setIsRefetching(true);
+    // Simulate a brief loading state for user feedback
+    setTimeout(() => {
+      setIsRefetching(false);
+      toast.success('Daten sind aktuell');
+    }, 500);
+  };
 
   // Filter jobs based on type
   const filteredJobs = allJobs.filter(job => {
@@ -639,7 +718,6 @@ function JobsFilterWrapper({ filterType }: { filterType: 'wasserschaden' | 'sond
   const createJobMutation = useMutation({
     mutationFn: jobsService.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
       toast.success('Auftrag erfolgreich erstellt');
     },
     onError: (error) => {
@@ -688,9 +766,26 @@ function JobsFilterWrapper({ filterType }: { filterType: 'wasserschaden' | 'sond
             <h2 className="text-2xl font-semibold">
               {filterType === 'wasserschaden' ? 'Wasserschäden' : 'Sonderaufträge'}
             </h2>
-            <Button onClick={() => navigate('/jobs')}>
-              Alle Aufträge anzeigen
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center text-sm text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
+                  Live
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isRefetching}
+                  title="Daten manuell aktualisieren"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+              <Button onClick={() => navigate('/jobs')}>
+                Alle Aufträge anzeigen
+              </Button>
+            </div>
           </div>
 
           {loading ? (
