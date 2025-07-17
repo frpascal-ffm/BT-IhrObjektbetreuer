@@ -11,7 +11,7 @@ interface AddressAutocompleteProps {
   disabled?: boolean;
 }
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyDTRlbBes3PHeMaKgI9fJxygaaUEHwengc';
+const GOOGLE_MAPS_API_KEY = '';
 
 export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   value,

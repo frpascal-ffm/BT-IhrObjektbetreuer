@@ -14,7 +14,7 @@ npm install --save-dev @types/google.maps
 ### API Key
 Der Google Maps API Key ist in der `AddressAutocomplete.tsx` Komponente konfiguriert:
 ```typescript
-const GOOGLE_MAPS_API_KEY = 'AIzaSyDTRlbBes3PHeMaKgI9fJxygaaUEHwengc';
+const GOOGLE_MAPS_API_KEY = '';
 ```
 
 ### Erforderliche APIs

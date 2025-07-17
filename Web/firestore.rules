@@ -1,47 +1,151 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read all items
-    match /items/{item} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    
+    // Hilfsfunktion: Prüft ob Benutzer ein Unternehmen ist
+    function isCompany() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company';
     }
     
-    // User profiles
+    // Hilfsfunktion: Prüft ob Benutzer ein Mitarbeiter ist
+    function isEmployee() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employee';
+    }
+    
+    // Hilfsfunktion: Prüft ob Benutzer das Unternehmen oder ein Mitarbeiter des Unternehmens ist
+    function isCompanyOrEmployee(companyId) {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return user.role == 'company' && user.uid == companyId ||
+             user.role == 'employee' && user.companyId == companyId;
+    }
+    
+    // Hilfsfunktion: Prüft Berechtigungen für Mitarbeiter
+    function hasPermission(permission) {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return user.role == 'company' || 
+             (user.role == 'employee' && user.permissions[permission] == true);
+    }
+    
+    // Hilfsfunktion: Prüft ob Benutzer aktiv ist
+    function isUserActive() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true;
+    }
+    
+    // Users Collection
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Properties - accessible by all authenticated users
-    match /properties/{property} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-    }
-    
-    // Jobs - accessible by all authenticated users
-    match /jobs/{job} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-    }
-    
-    // Employees - restricted access
-    match /employees/{employee} {
-      // Allow read if user is authenticated and either:
-      // 1. User is reading their own employee record (by email match)
-      // 2. User is an admin (this would need to be checked via custom claims in production)
-      allow read: if request.auth != null && (
-        resource.data.email == request.auth.token.email ||
-        request.auth.token.admin == true
-      );
+      // Benutzer können ihre eigenen Daten lesen
+      allow read: if request.auth != null && 
+                     (request.auth.uid == userId || 
+                      isCompany() || 
+                      (isEmployee() && resource.data.companyId == request.auth.uid));
       
-      // Allow create/update/delete only for admin users
-      // In production, this should check for admin custom claims
-      allow write: if request.auth != null && request.auth.token.admin == true;
+      // Benutzer können ihre eigenen Daten bearbeiten
+      allow write: if request.auth != null && 
+                      request.auth.uid == userId && 
+                      isUserActive();
+      
+      // Nur Unternehmen können neue Benutzer erstellen (bei Registrierung)
+      allow create: if request.auth != null && 
+                       request.auth.uid == userId;
+    }
+    
+    // Properties Collection
+    match /properties/{propertyId} {
+      // Nur das Unternehmen und seine Mitarbeiter können Properties lesen
+      allow read: if request.auth != null && 
+                     isUserActive() &&
+                     isCompanyOrEmployee(resource.data.companyId);
+      
+      // Nur das Unternehmen und Mitarbeiter mit entsprechenden Berechtigungen können Properties bearbeiten
+      allow write: if request.auth != null && 
+                      isUserActive() &&
+                      isCompanyOrEmployee(resource.data.companyId) &&
+                      hasPermission('canEditProperties');
+      
+      // Nur Unternehmen können neue Properties erstellen
+      allow create: if request.auth != null && 
+                       isUserActive() &&
+                       isCompany() && 
+                       request.resource.data.companyId == request.auth.uid;
+    }
+    
+    // Jobs Collection
+    match /jobs/{jobId} {
+      // Nur das Unternehmen und seine Mitarbeiter können Jobs lesen
+      allow read: if request.auth != null && 
+                     isUserActive() &&
+                     isCompanyOrEmployee(resource.data.companyId);
+      
+      // Nur das Unternehmen und Mitarbeiter mit entsprechenden Berechtigungen können Jobs bearbeiten
+      allow write: if request.auth != null && 
+                      isUserActive() &&
+                      isCompanyOrEmployee(resource.data.companyId) &&
+                      hasPermission('canEditJobs');
+      
+      // Nur Unternehmen können neue Jobs erstellen
+      allow create: if request.auth != null && 
+                       isUserActive() &&
+                       isCompany() && 
+                       request.resource.data.companyId == request.auth.uid;
+    }
+    
+    // Appointments Collection
+    match /appointments/{appointmentId} {
+      // Nur das Unternehmen und seine Mitarbeiter können Termine lesen
+      allow read: if request.auth != null && 
+                     isUserActive() &&
+                     isCompanyOrEmployee(resource.data.companyId);
+      
+      // Nur das Unternehmen und Mitarbeiter mit entsprechenden Berechtigungen können Termine bearbeiten
+      allow write: if request.auth != null && 
+                      isUserActive() &&
+                      isCompanyOrEmployee(resource.data.companyId) &&
+                      hasPermission('canEditAppointments');
+      
+      // Nur Unternehmen können neue Termine erstellen
+      allow create: if request.auth != null && 
+                       isUserActive() &&
+                       isCompany() && 
+                       request.resource.data.companyId == request.auth.uid;
+    }
+    
+    // Employee Invitations Collection
+    match /employeeInvitations/{invitationId} {
+      // Nur das Unternehmen kann seine Einladungen lesen
+      allow read: if request.auth != null && 
+                     isUserActive() &&
+                     resource.data.companyId == request.auth.uid;
+      
+      // Nur das Unternehmen kann seine Einladungen bearbeiten
+      allow write: if request.auth != null && 
+                      isUserActive() &&
+                      resource.data.companyId == request.auth.uid;
+      
+      // Nur Unternehmen können neue Einladungen erstellen
+      allow create: if request.auth != null && 
+                       isUserActive() &&
+                       isCompany() && 
+                       request.resource.data.companyId == request.auth.uid;
+    }
+    
+    // Zusätzliche Sicherheitsregeln für mobile App
+    // Mitarbeiter können nur Termine ihres Unternehmens sehen
+    match /appointments/{appointmentId} {
+      // Mitarbeiter können nur Termine lesen, die ihnen zugewiesen sind oder zu ihrem Unternehmen gehören
+      allow read: if request.auth != null && 
+                     isUserActive() &&
+                     (isCompanyOrEmployee(resource.data.companyId) ||
+                      (isEmployee() && resource.data.assignedTo == request.auth.uid));
+    }
+    
+    // Mitarbeiter können nur Jobs sehen, die ihnen zugewiesen sind oder zu ihrem Unternehmen gehören
+    match /jobs/{jobId} {
+      allow read: if request.auth != null && 
+                     isUserActive() &&
+                     (isCompanyOrEmployee(resource.data.companyId) ||
+                      (isEmployee() && resource.data.assignedTo == request.auth.uid));
     }
   }
 } 

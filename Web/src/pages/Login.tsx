@@ -14,6 +14,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +42,7 @@ export default function Login() {
           setError("Passwort muss mindestens 6 Zeichen lang sein");
           return;
         }
-        await register(email, password);
+        await register(email, password, email.split('@')[0]); // Verwende E-Mail-Prefix als Firmenname
         navigate("/");
       }
     } catch (err: any) {

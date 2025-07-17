@@ -19,6 +19,7 @@ import { jobsService, propertiesService, employeesService, type Job as Firestore
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DebugInfo from '@/components/DebugInfo';
 
 const Jobs = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -61,7 +62,12 @@ const Jobs = () => {
       setLoading(false);
     }, (error) => {
       console.error('Error in jobs subscription:', error);
-      toast.error('Fehler beim Laden der Aufträge');
+      if (error.code === 'permission-denied') {
+        console.warn('Permission denied for jobs collection');
+        toast.error('Keine Berechtigung für Aufträge');
+      } else {
+        toast.error('Fehler beim Laden der Aufträge');
+      }
       setLoading(false);
     });
 
@@ -69,14 +75,25 @@ const Jobs = () => {
       setProperties(propertiesData);
     }, (error) => {
       console.error('Error in properties subscription:', error);
-      toast.error('Fehler beim Laden der Liegenschaften');
+      if (error.code === 'permission-denied') {
+        console.warn('Permission denied for properties collection');
+        toast.error('Keine Berechtigung für Liegenschaften');
+      } else {
+        toast.error('Fehler beim Laden der Liegenschaften');
+      }
     });
 
     const unsubscribeEmployees = employeesService.subscribeToAll((employeesData) => {
       setEmployees(employeesData);
     }, (error) => {
       console.error('Error in employees subscription:', error);
-      toast.error('Fehler beim Laden der Mitarbeiter');
+      // Don't show error toast for permission issues, just log it
+      if (error.code === 'permission-denied') {
+        console.warn('Permission denied for employees collection - continuing without employee data');
+        setEmployees([]); // Set empty array to prevent errors
+      } else {
+        toast.error('Fehler beim Laden der Mitarbeiter');
+      }
     });
 
     // Cleanup subscriptions on unmount
@@ -247,6 +264,9 @@ const Jobs = () => {
         <Header title="Aufträge" toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
+          {/* Temporary debug info - remove in production */}
+          <DebugInfo />
+          
           <div className="mb-6 flex flex-col sm:flex-row justify-between gap-3">
             <div className="flex flex-1 max-w-md items-center gap-3">
               <div className="relative flex-1">
@@ -362,10 +382,15 @@ const Jobs = () => {
                               <Building className="h-4 w-4" />
                               {property?.name || 'Unbekannte Liegenschaft'}
                             </div>
-                            {assignedEmployee && (
+                            {assignedEmployee ? (
                               <div className="flex items-center gap-1">
                                 <User className="h-4 w-4" />
                                 {assignedEmployee.name}
+                              </div>
+                            ) : job.assignedTo && (
+                              <div className="flex items-center gap-1">
+                                <User className="h-4 w-4" />
+                                <span className="text-gray-400">Unbekannter Mitarbeiter</span>
                               </div>
                             )}
                             {job.createdAt && (
@@ -429,11 +454,17 @@ const Jobs = () => {
                     <SelectValue placeholder="Liegenschaft auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    {properties.map((property) => (
-                      <SelectItem key={property.id} value={property.id!}>
-                        {property.name}
+                    {properties.length > 0 ? (
+                      properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id!}>
+                          {property.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>
+                        Keine Liegenschaften verfügbar
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -523,11 +554,17 @@ const Jobs = () => {
                     <SelectValue placeholder="Mitarbeiter auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    {employees.map((employee) => (
-                      <SelectItem key={employee.id} value={employee.id!}>
-                        {employee.name}
+                    {employees.length > 0 ? (
+                      employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id!}>
+                          {employee.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>
+                        Keine Mitarbeiter verfügbar
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>
