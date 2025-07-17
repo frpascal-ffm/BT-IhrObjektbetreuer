@@ -24,6 +24,9 @@ export default function JobsScreen() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showNewJobsToast, setShowNewJobsToast] = useState(false);
+  const [newJobsCount, setNewJobsCount] = useState(0);
+  const [previousJobsCount, setPreviousJobsCount] = useState(0);
   
   // Login state
   const [email, setEmail] = useState('');
@@ -31,30 +34,50 @@ export default function JobsScreen() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
-    if (employee) {
-      loadJobs();
-    }
-  }, [employee]);
+    let unsubscribe: (() => void) | null = null;
 
-  const loadJobs = async () => {
-    if (!employee?.id) return;
-    
-    try {
+    if (employee?.id) {
       setLoading(true);
-      const employeeJobs = await jobsService.getByAssignedTo(employee.id);
-      setJobs(employeeJobs);
-    } catch (error) {
-      console.error('Error loading jobs:', error);
-      Alert.alert('Fehler', 'Fehler beim Laden der Termine');
-    } finally {
+      
+      // Realtime Listener für Jobs
+      unsubscribe = jobsService.subscribeToJobsByAssignedTo(
+        employee.id,
+        (updatedJobs) => {
+          // Prüfe, ob es neue Jobs gibt (nur wenn wir bereits Jobs hatten und nicht beim ersten Laden)
+          if (previousJobsCount > 0 && updatedJobs.length > previousJobsCount) {
+            const count = updatedJobs.length - previousJobsCount;
+            setNewJobsCount(count);
+            setShowNewJobsToast(true);
+            setTimeout(() => setShowNewJobsToast(false), 3000);
+          }
+          
+          setPreviousJobsCount(updatedJobs.length);
+          setJobs(updatedJobs);
+          setLoading(false);
+        }
+      );
+    } else {
       setLoading(false);
+      setPreviousJobsCount(0);
+      setShowNewJobsToast(false);
+      setNewJobsCount(0);
     }
-  };
+
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [employee]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadJobs();
-    setRefreshing(false);
+    // Der Realtime Listener wird automatisch die neuesten Daten liefern
+    // Wir müssen nur kurz warten, damit der User das Feedback sieht
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
   };
 
   const handleLogin = async () => {
@@ -322,6 +345,15 @@ export default function JobsScreen() {
 
       {/* Content */}
       <View style={styles.content}>
+        {/* Toast Notification für neue Termine */}
+        {showNewJobsToast && (
+          <View style={styles.toastContainer}>
+            <Text style={styles.toastText}>
+              🆕 {newJobsCount} neue Termine verfügbar!
+            </Text>
+          </View>
+        )}
+        
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Meine Termine</Text>
           <Text style={styles.jobCount}>{jobs.length} Termine</Text>
@@ -539,6 +571,29 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  toastContainer: {
+    backgroundColor: '#10b981',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  toastText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   jobList: {
     paddingBottom: 16,

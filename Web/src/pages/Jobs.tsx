@@ -37,6 +37,8 @@ const Jobs = () => {
     status: 'pending',
     priority: 'medium',
     category: 'maintenance',
+    estimatedHours: undefined,
+    notes: '',
   });
   
   const navigate = useNavigate();
@@ -73,6 +75,8 @@ const Jobs = () => {
         status: 'pending',
         priority: 'medium',
         category: 'maintenance',
+        estimatedHours: undefined,
+        notes: '',
       });
       toast.success('Auftrag erfolgreich erstellt');
     },
@@ -149,18 +153,23 @@ const Jobs = () => {
       return;
     }
 
-    createJobMutation.mutate({
+    // Filter out undefined values to prevent Firestore errors
+    const jobData: any = {
       title: newJob.title,
       description: newJob.description,
       propertyId: newJob.propertyId,
       status: newJob.status || 'pending',
       priority: newJob.priority || 'medium',
       category: newJob.category || 'maintenance',
-      dueDate: newJob.dueDate,
-      assignedTo: newJob.assignedTo,
-      estimatedHours: newJob.estimatedHours,
-      notes: newJob.notes,
-    });
+    };
+
+    // Only add optional fields if they have values
+    if (newJob.dueDate) jobData.dueDate = newJob.dueDate;
+    if (newJob.assignedTo) jobData.assignedTo = newJob.assignedTo;
+    if (newJob.estimatedHours !== undefined && newJob.estimatedHours !== null) jobData.estimatedHours = newJob.estimatedHours;
+    if (newJob.notes) jobData.notes = newJob.notes;
+
+    createJobMutation.mutate(jobData);
   };
   
   const hasAccessToProperty = (propertyId: string) => {
@@ -487,6 +496,33 @@ const Jobs = () => {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="estimatedHours">Geschätzte Stunden</Label>
+                <Input
+                  id="estimatedHours"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={newJob.estimatedHours || ''}
+                  onChange={(e) => setNewJob({...newJob, estimatedHours: parseFloat(e.target.value) || undefined})}
+                  placeholder="z.B. 2.5"
+                  disabled={createJobMutation.isPending}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notizen</Label>
+                <Textarea
+                  id="notes"
+                  value={newJob.notes || ''}
+                  onChange={(e) => setNewJob({...newJob, notes: e.target.value})}
+                  placeholder="Optionale Notizen zum Auftrag"
+                  disabled={createJobMutation.isPending}
+                />
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button 
                 type="button" 
@@ -566,6 +602,8 @@ function JobsFilterWrapper({ filterType }: { filterType: 'wasserschaden' | 'sond
     status: 'pending',
     priority: 'high',
     category: filterType === 'wasserschaden' ? 'repair' : 'other',
+    estimatedHours: undefined,
+    notes: '',
   });
   
   const navigate = useNavigate();
@@ -618,14 +656,23 @@ function JobsFilterWrapper({ filterType }: { filterType: 'wasserschaden' | 'sond
       return;
     }
 
-    createJobMutation.mutate({
+    // Filter out undefined values to prevent Firestore errors
+    const jobData: any = {
       title: newJob.title,
       description: newJob.description,
       propertyId: newJob.propertyId,
       status: newJob.status || 'pending',
       priority: newJob.priority || 'high',
       category: filterType === 'wasserschaden' ? 'repair' : 'other',
-    });
+    };
+
+    // Only add optional fields if they have values
+    if (newJob.dueDate) jobData.dueDate = newJob.dueDate;
+    if (newJob.assignedTo) jobData.assignedTo = newJob.assignedTo;
+    if (newJob.estimatedHours !== undefined && newJob.estimatedHours !== null) jobData.estimatedHours = newJob.estimatedHours;
+    if (newJob.notes) jobData.notes = newJob.notes;
+
+    createJobMutation.mutate(jobData);
   };
 
   return (

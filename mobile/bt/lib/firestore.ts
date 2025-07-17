@@ -10,7 +10,9 @@ import {
   where, 
   orderBy,
   Timestamp,
-  serverTimestamp 
+  serverTimestamp,
+  onSnapshot,
+  Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -79,6 +81,49 @@ export const jobsService = {
       const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
       const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
       return bTime.getTime() - aTime.getTime();
+    });
+  },
+
+  // Neue Methode für Echtzeit-Updates
+  subscribeToJobsByAssignedTo(
+    assignedTo: string, 
+    callback: (jobs: Job[]) => void
+  ): Unsubscribe {
+    const q = query(
+      collection(db, 'jobs'),
+      where('assignedTo', '==', assignedTo),
+      orderBy('createdAt', 'desc')
+    );
+    
+    return onSnapshot(q, (querySnapshot) => {
+      const jobs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Job[];
+      
+      callback(jobs);
+    }, (error) => {
+      console.error('Error listening to jobs:', error);
+    });
+  },
+
+  // Neue Methode für Echtzeit-Updates eines einzelnen Jobs
+  subscribeToJobById(
+    jobId: string,
+    callback: (job: Job | null) => void
+  ): Unsubscribe {
+    const docRef = doc(db, 'jobs', jobId);
+    
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const job = { id: docSnap.id, ...docSnap.data() } as Job;
+        callback(job);
+      } else {
+        callback(null);
+      }
+    }, (error) => {
+      console.error('Error listening to job:', error);
+      callback(null);
     });
   },
 

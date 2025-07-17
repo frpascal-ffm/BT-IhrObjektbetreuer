@@ -18,35 +18,38 @@ export default function JobDetailScreen() {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [propertyLoaded, setPropertyLoaded] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      loadJobDetails();
-    }
-  }, [id]);
+    let unsubscribe: (() => void) | null = null;
 
-  const loadJobDetails = async () => {
-    if (!id) return;
-    
-    try {
+    if (id) {
       setLoading(true);
-      const jobData = await jobsService.getById(id);
-      if (jobData) {
-        setJob(jobData);
-        
-        // Lade auch die Property-Details
-        if (jobData.propertyId) {
-          const propertyData = await propertiesService.getById(jobData.propertyId);
-          setProperty(propertyData);
+      
+      // Realtime Listener für Job-Details
+      unsubscribe = jobsService.subscribeToJobById(id, (jobData) => {
+        if (jobData) {
+          setJob(jobData);
+          
+          // Lade auch die Property-Details (nur einmal beim ersten Laden)
+          if (jobData.propertyId && !propertyLoaded) {
+            setPropertyLoaded(true);
+            propertiesService.getById(jobData.propertyId).then(setProperty);
+          }
+        } else {
+          setJob(null);
         }
-      }
-    } catch (error) {
-      console.error('Error loading job details:', error);
-      Alert.alert('Fehler', 'Fehler beim Laden der Termin-Details');
-    } finally {
-      setLoading(false);
+        setLoading(false);
+      });
     }
-  };
+
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+      }, [id]);
 
   const updateJobStatus = async (newStatus: Job['status']) => {
     if (!job?.id) return;
@@ -54,7 +57,7 @@ export default function JobDetailScreen() {
     try {
       setUpdating(true);
       await jobsService.update(job.id, { status: newStatus });
-      setJob({ ...job, status: newStatus });
+      // Der Realtime Listener wird automatisch die Änderung widerspiegeln
       Alert.alert('Erfolg', 'Status erfolgreich aktualisiert');
     } catch (error) {
       console.error('Error updating job status:', error);
