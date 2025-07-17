@@ -13,6 +13,12 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { 
+  createUserWithEmailAndPassword, 
+  deleteUser,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { auth } from './firebase';
 
 // Hilfsfunktion zur Generierung eines sicheren Passworts
 export const generatePassword = (): string => {
@@ -65,7 +71,7 @@ export interface Employee {
   role: 'admin' | 'manager' | 'technician' | 'cleaner';
   phone?: string;
   status: 'active' | 'inactive';
-  password?: string; // Passwort für mobile App-Zugang
+  firebaseUid?: string; // Firebase Auth UID instead of password
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   avatar?: string;
@@ -163,14 +169,20 @@ export const jobsService = {
   async getByAssignedTo(assignedTo: string): Promise<Job[]> {
     const q = query(
       collection(db, 'jobs'),
-      where('assignedTo', '==', assignedTo),
-      orderBy('createdAt', 'desc')
+      where('assignedTo', '==', assignedTo)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const jobs = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Job[];
+    
+    // Sort in memory as temporary fix while index builds
+    return jobs.sort((a, b) => {
+      const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
+      const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
+      return bTime.getTime() - aTime.getTime();
+    });
   },
 
   async create(job: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
@@ -229,13 +241,50 @@ export const employeesService = {
     })) as Employee[];
   },
 
-  async create(employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const docRef = await addDoc(collection(db, 'employees'), {
-      ...employee,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    return docRef.id;
+  async getByEmail(email: string): Promise<Employee | null> {
+    const q = query(
+      collection(db, 'employees'),
+      where('email', '==', email)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return { id: doc.id, ...doc.data() } as Employee;
+    }
+    return null;
+  },
+
+  async create(employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt' | 'firebaseUid'> & { password: string }): Promise<string> {
+    try {
+      console.log('Creating employee in Firebase Auth:', { email: employee.email, passwordLength: employee.password.length });
+      
+      // First, create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        employee.email, 
+        employee.password
+      );
+      
+      const firebaseUid = userCredential.user.uid;
+      console.log('Firebase Auth user created successfully:', { uid: firebaseUid, email: employee.email });
+      
+      // Then create Firestore document without password
+      const { password, ...employeeData } = employee;
+      const docRef = await addDoc(collection(db, 'employees'), {
+        ...employeeData,
+        firebaseUid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('Employee document created in Firestore:', { docId: docRef.id, firebaseUid });
+      
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      throw error;
+    }
   },
 
   async update(id: string, employee: Partial<Employee>): Promise<void> {
@@ -247,7 +296,69 @@ export const employeesService = {
   },
 
   async delete(id: string): Promise<void> {
+    // Get the employee to find their Firebase UID
+    const employee = await this.getById(id);
+    if (employee?.firebaseUid) {
+      // Delete Firebase Auth user if it exists
+      try {
+        // Note: This requires admin SDK in production
+        // For now, we'll just delete the Firestore document
+        // The Firebase Auth user will need to be deleted manually or via admin SDK
+        console.warn('Firebase Auth user deletion requires admin SDK. User UID:', employee.firebaseUid);
+      } catch (error) {
+        console.error('Error deleting Firebase Auth user:', error);
+      }
+    }
+    
+    // Delete Firestore document
     const docRef = doc(db, 'employees', id);
     await deleteDoc(docRef);
+  }
+}; 
+
+// Helper function to set admin custom claims
+// Note: This requires Firebase Admin SDK on the backend
+// For now, we'll create a placeholder function
+export const setAdminCustomClaims = async (uid: string, isAdmin: boolean = false) => {
+  // This function would typically call a Cloud Function or backend API
+  // to set custom claims using Firebase Admin SDK
+  console.log(`Would set admin claims for UID ${uid}: ${isAdmin}`);
+  
+  // In production, you would implement this as:
+  // 1. Call a Cloud Function with the UID and admin status
+  // 2. The Cloud Function uses Admin SDK to set custom claims
+  // 3. The claims are then available in Firestore rules
+  
+  // For now, we'll just log the intention
+  return Promise.resolve();
+};
+
+// Debug utility function to check employee status
+export const debugEmployeeStatus = async (email: string) => {
+  try {
+    console.log('=== Debug Employee Status ===');
+    console.log('Email:', email);
+    
+    // Check if employee exists in Firestore
+    const firestoreEmployee = await employeesService.getByEmail(email);
+    console.log('Firestore Employee:', firestoreEmployee ? {
+      id: firestoreEmployee.id,
+      name: firestoreEmployee.name,
+      email: firestoreEmployee.email,
+      status: firestoreEmployee.status,
+      firebaseUid: firestoreEmployee.firebaseUid
+    } : 'NOT FOUND');
+    
+    // Note: We can't directly check Firebase Auth from client side
+    // This would require Admin SDK on the backend
+    console.log('Firebase Auth: Cannot check directly from client (requires Admin SDK)');
+    
+    return {
+      firestore: firestoreEmployee,
+      firebaseAuth: 'Cannot check from client'
+    };
+  } catch (error) {
+    console.error('Error debugging employee status:', error);
+    throw error;
   }
 }; 

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Employee } from '@/types';
 import { Plus, Search, User, Mail, Phone, Loader2, Edit, Save, X, Trash2, RefreshCw } from 'lucide-react';
-import { employeesService, propertiesService, jobsService, type Employee as FirestoreEmployee, generatePassword } from '@/lib/firestore';
+import { employeesService, propertiesService, jobsService, type Employee as FirestoreEmployee, generatePassword, debugEmployeeStatus } from '@/lib/firestore';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -68,15 +68,16 @@ const Employees = () => {
       });
       
       // Zeige das generierte Passwort an
-      const password = variables.password || newEmployee.password;
+      const password = variables.password;
       if (password) {
         toast.success(
           <div>
             <p>Mitarbeiter erfolgreich erstellt</p>
-            <p className="text-sm mt-1">App-Passwort: <strong>{password}</strong></p>
-            <p className="text-xs mt-1 text-gray-500">Bitte notieren Sie sich dieses Passwort!</p>
+            <p className="text-sm mt-1">Firebase Auth Passwort: <strong>{password}</strong></p>
+            <p className="text-xs mt-1 text-gray-500">Bitte notieren Sie sich dieses Passwort für die mobile App!</p>
+            <p className="text-xs mt-1 text-gray-500">Das Passwort wird nicht in der Datenbank gespeichert.</p>
           </div>,
-          { duration: 10000 }
+          { duration: 15000 }
         );
       } else {
         toast.success('Mitarbeiter erfolgreich erstellt');
@@ -84,7 +85,13 @@ const Employees = () => {
     },
     onError: (error) => {
       console.error('Error creating employee:', error);
-      toast.error('Fehler beim Erstellen des Mitarbeiters');
+      if (error.code === 'auth/email-already-in-use') {
+        toast.error('Diese E-Mail-Adresse wird bereits verwendet');
+      } else if (error.code === 'auth/weak-password') {
+        toast.error('Das Passwort ist zu schwach');
+      } else {
+        toast.error('Fehler beim Erstellen des Mitarbeiters');
+      }
     },
   });
 
@@ -144,7 +151,7 @@ const Employees = () => {
       role: newEmployee.role || 'technician',
       status: newEmployee.status || 'active',
       phone: newEmployee.phone || '',
-      password: password,
+      password: password, // This will be used to create Firebase Auth user
     });
   };
 
@@ -157,9 +164,6 @@ const Employees = () => {
       return;
     }
 
-    // Generiere ein Passwort falls keines angegeben wurde
-    const password = editingEmployee.password || generatePassword();
-
     updateEmployeeMutation.mutate({
       id: editingEmployee.id!,
       data: {
@@ -168,7 +172,8 @@ const Employees = () => {
         role: editingEmployee.role,
         status: editingEmployee.status,
         phone: editingEmployee.phone || '',
-        password: password,
+        // Note: Password changes require Firebase Admin SDK
+        // For now, employees need to use password reset functionality
       }
     });
   };
@@ -177,6 +182,18 @@ const Employees = () => {
   const handleDeleteEmployee = async () => {
     if (!employeeToDelete) return;
     deleteEmployeeMutation.mutate(employeeToDelete.id!);
+  };
+
+  // Debug function to test employee authentication
+  const handleDebugEmployee = async (email: string) => {
+    try {
+      console.log('=== Testing Employee Authentication ===');
+      await debugEmployeeStatus(email);
+      toast.success('Debug info logged to console');
+    } catch (error) {
+      console.error('Debug error:', error);
+      toast.error('Debug failed');
+    }
   };
 
   // Get employee statistics
@@ -317,6 +334,14 @@ const Employees = () => {
                           onClick={() => navigate('/jobs', { state: { assignedTo: employee.id } })}
                         >
                           Aufträge anzeigen
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDebugEmployee(employee.email)}
+                          title="Debug Authentication"
+                        >
+                          Debug
                         </Button>
                         <Button
                           variant="outline"
@@ -515,29 +540,15 @@ const Employees = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="edit-password">App-Passwort</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="edit-password"
-                    type="text"
-                    value={editingEmployee.password || ''}
-                    onChange={(e) => setEditingEmployee({...editingEmployee, password: e.target.value})}
-                    placeholder="Passwort für mobile App"
-                    disabled={updateEmployeeMutation.isPending}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditingEmployee({...editingEmployee, password: generatePassword()})}
-                    disabled={updateEmployeeMutation.isPending}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
+                <Label htmlFor="edit-password">Passwort-Hinweis</Label>
+                <div className="p-3 bg-gray-50 rounded-md">
+                  <p className="text-sm text-gray-600">
+                    Passwörter werden über Firebase Auth verwaltet und können hier nicht geändert werden.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Mitarbeiter können ihr Passwort über die mobile App zurücksetzen.
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Leer lassen für automatische Generierung
-                </p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">

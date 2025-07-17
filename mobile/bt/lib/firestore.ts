@@ -55,7 +55,7 @@ export interface Employee {
   role: 'admin' | 'manager' | 'technician' | 'cleaner';
   phone?: string;
   status: 'active' | 'inactive';
-  password?: string;
+  firebaseUid?: string; // Firebase Auth UID instead of password
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   avatar?: string;
@@ -66,14 +66,20 @@ export const jobsService = {
   async getByAssignedTo(assignedTo: string): Promise<Job[]> {
     const q = query(
       collection(db, 'jobs'),
-      where('assignedTo', '==', assignedTo),
-      orderBy('createdAt', 'desc')
+      where('assignedTo', '==', assignedTo)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const jobs = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Job[];
+    
+    // Sort in memory as temporary fix while index builds
+    return jobs.sort((a, b) => {
+      const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
+      const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
+      return bTime.getTime() - aTime.getTime();
+    });
   },
 
   async getById(id: string): Promise<Job | null> {

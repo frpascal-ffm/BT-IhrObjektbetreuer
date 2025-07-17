@@ -31,9 +31,12 @@ Diese Web-App ist vollständig mit Firebase integriert und bietet:
 - Zuweisung an Mitarbeiter
 
 ### 👥 Mitarbeiter (Employees)
-- Mitarbeiterverwaltung
+- Mitarbeiterverwaltung mit Firebase Auth Integration
 - Rollen-Management (Admin, Manager, Techniker, Reinigungskraft)
 - Status-Tracking (aktiv, inaktiv)
+- **Sichere Authentifizierung**: Passwörter werden nur in Firebase Auth gespeichert
+- **Mobile-Only Access**: Mitarbeiter haben nur Zugriff auf die Mobile App
+- **Admin-Only Management**: Nur Administratoren können Mitarbeiter erstellen/bearbeiten
 
 ## Technische Implementierung
 
@@ -124,6 +127,7 @@ interface Employee {
   role: 'admin' | 'manager' | 'technician' | 'cleaner';
   phone?: string;
   status: 'active' | 'inactive';
+  firebaseUid?: string; // Firebase Auth UID (kein Passwort in Firestore!)
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   avatar?: string;
@@ -161,16 +165,42 @@ interface Employee {
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Nur authentifizierte Benutzer können lesen/schreiben
-    match /{document=**} {
+    // Employees - restricted access with custom claims
+    match /employees/{employee} {
+      // Allow read if user is authenticated and either:
+      // 1. User is reading their own employee record
+      // 2. User has admin custom claim
+      allow read: if request.auth != null && (
+        resource.data.email == request.auth.token.email ||
+        request.auth.token.admin == true
+      );
+      
+      // Allow write only for users with admin custom claim
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+    
+    // Other collections - accessible by all authenticated users
+    match /properties/{property} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /jobs/{job} {
       allow read, write: if request.auth != null;
     }
   }
 }
 ```
 
-### Geschützte Routen
-Alle Routen außer `/login` sind durch `ProtectedRoute` geschützt und erfordern eine Authentifizierung.
+### Zugriffskontrolle
+- **Web-App (Admin)**: Nur Benutzer mit Admin-Custom-Claim können Mitarbeiter verwalten
+- **Mobile App (Mitarbeiter)**: Mitarbeiter können nur ihre eigenen Daten lesen
+- **Passwort-Sicherheit**: Passwörter werden nur in Firebase Auth gespeichert, nie in Firestore
+- **Geschützte Routen**: Alle Routen außer `/login` sind durch `ProtectedRoute` geschützt
+
+### Firebase Auth Integration
+- Mitarbeiter werden in Firebase Auth erstellt
+- Custom Claims für Admin-Status
+- Sichere Authentifizierung ohne Passwort-Speicherung in Firestore
 
 ## Entwicklung
 

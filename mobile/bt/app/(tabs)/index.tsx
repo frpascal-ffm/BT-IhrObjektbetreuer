@@ -65,16 +65,12 @@ export default function JobsScreen() {
 
     setIsLoggingIn(true);
     try {
-      const success = await login(email, password);
-      if (success) {
-        // Login erfolgreich - Termine werden automatisch geladen
-        setEmail('');
-        setPassword('');
-      } else {
-        Alert.alert('Fehler', 'E-Mail oder Passwort ist falsch.');
-      }
-    } catch (error) {
-      Alert.alert('Fehler', 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
+      await login(email, password);
+      // Login erfolgreich - Termine werden automatisch geladen
+      setEmail('');
+      setPassword('');
+    } catch (error: any) {
+      Alert.alert('Anmeldung fehlgeschlagen', error.message || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.');
     } finally {
       setIsLoggingIn(false);
     }
