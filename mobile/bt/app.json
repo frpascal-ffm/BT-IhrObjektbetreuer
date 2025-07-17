@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "bt",
-    "slug": "bt",
+    "name": "BT Ihr Objektbetreuer",
+    "slug": "bt-objektbetreuer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,14 +9,16 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bt.objektbetreuer"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0ea5e9"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.bt.objektbetreuer"
     },
     "web": {
       "bundler": "metro",
@@ -31,7 +33,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#0ea5e9"
         }
       ]
     ],

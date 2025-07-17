@@ -1,50 +1,124 @@
-# Welcome to your Expo app 👋
+# BT Ihr Objektbetreuer - Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Eine React Native/Expo-App für Mitarbeiter, um ihre zugewiesenen Termine einzusehen und zu verwalten.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Mitarbeiter-Login**: Anmeldung mit E-Mail und Passwort (erstellt vom Admin)
+- **Termine anzeigen**: Übersicht aller zugewiesenen Termine
+- **Termin-Details**: Detaillierte Ansicht einzelner Termine
+- **Status-Updates**: Möglichkeit, den Status von Terminen zu ändern
+- **Profil-Verwaltung**: Anzeige der Mitarbeiter-Informationen
+- **Offline-Unterstützung**: Lokale Speicherung der Anmeldedaten
 
+## Installation
+
+1. **Dependencies installieren**:
    ```bash
    npm install
    ```
 
-2. Start the app
-
+2. **App starten**:
    ```bash
-   npx expo start
+   npm start
    ```
 
-In the output, you'll find options to open the app in a
+3. **Auf Gerät/Emulator ausführen**:
+   - iOS: `npm run ios`
+   - Android: `npm run android`
+   - Web: `npm run web`
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Verwendung
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Für Administratoren (Web-App)
 
-## Get a fresh project
+1. Öffnen Sie die Web-App unter `/employees`
+2. Erstellen Sie einen neuen Mitarbeiter mit:
+   - Name
+   - E-Mail-Adresse
+   - Rolle (Techniker, Reinigungskraft, etc.)
+   - App-Passwort (wird automatisch generiert)
+3. Das generierte Passwort wird angezeigt - notieren Sie es!
 
-When you're ready, run:
+### Für Mitarbeiter (Mobile App)
 
-```bash
-npm run reset-project
+1. App öffnen
+2. Mit E-Mail und Passwort anmelden
+3. Termine einsehen und Status aktualisieren
+
+## Technische Details
+
+### Architektur
+
+- **Frontend**: React Native mit Expo
+- **Backend**: Firebase Firestore
+- **Authentifizierung**: Custom Auth mit E-Mail/Passwort
+- **Navigation**: Expo Router
+- **State Management**: React Context (AuthContext)
+
+### Datenstruktur
+
+Die App verwendet die gleiche Firebase-Datenbank wie die Web-App:
+
+- **employees**: Mitarbeiter-Daten mit Login-Credentials
+- **jobs**: Termine/Aufträge mit Zuweisungen
+- **properties**: Objekte/Immobilien
+
+### Sicherheit
+
+- Passwörter werden in Firebase gespeichert (für Produktion sollte hier ein sicherer Hash verwendet werden)
+- Nur aktive Mitarbeiter können sich anmelden
+- Mitarbeiter sehen nur ihre eigenen Termine
+
+## Entwicklung
+
+### Projektstruktur
+
+```
+app/
+├── (tabs)/
+│   ├── index.tsx          # Hauptseite mit Terminen
+│   ├── profile.tsx        # Profil-Seite
+│   └── _layout.tsx        # Tab-Navigation
+├── job/
+│   └── [id].tsx           # Termin-Detail-Seite
+├── login.tsx              # Login-Seite
+└── _layout.tsx            # Haupt-Layout mit Auth
+
+lib/
+├── AuthContext.tsx        # Authentifizierung
+├── firebase.ts           # Firebase-Konfiguration
+└── firestore.ts          # Firestore-Services
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Hinzufügen neuer Features
 
-## Learn more
+1. **Neue Seite**: Erstellen Sie eine neue Datei in `app/`
+2. **Navigation**: Fügen Sie die Route in `_layout.tsx` hinzu
+3. **Services**: Erweitern Sie `firestore.ts` bei Bedarf
 
-To learn more about developing your project with Expo, look at the following resources:
+## Deployment
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Expo Build
 
-## Join the community
+```bash
+# Für iOS
+expo build:ios
 
-Join our community of developers creating universal apps.
+# Für Android
+expo build:android
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### App Store
+
+1. App bei Apple App Store/Google Play Store einreichen
+2. Metadaten und Screenshots bereitstellen
+3. Review-Prozess durchlaufen
+
+## Support
+
+Bei Fragen oder Problemen wenden Sie sich an das Entwicklungsteam.
+
+## Version
+
+1.0.0 - Erste Version mit grundlegenden Features
