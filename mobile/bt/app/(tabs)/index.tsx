@@ -242,7 +242,8 @@ export default function JobsScreen() {
                   style={styles.logoImage}
                   resizeMode="contain"
                 />
-                <Text style={styles.subtitle}>Ihr Objektbetreuer</Text>
+
+
               </View>
 
               {/* Login Form */}
@@ -362,7 +363,7 @@ export default function JobsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -378,7 +379,8 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 32,
+    marginTop: -20,
   },
   logoImage: {
     width: 120,
@@ -410,6 +412,7 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     textAlign: 'center',
     marginBottom: 24,
+    marginTop: 8,
   },
   inputContainer: {
     marginBottom: 20,
@@ -429,7 +432,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   loginButton: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: '#288FAF',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
