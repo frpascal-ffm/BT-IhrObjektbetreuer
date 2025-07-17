@@ -35,8 +35,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loadStoredEmployee = async () => {
     try {
-      // Für Testzwecke: AsyncStorage komplett leeren
-      await AsyncStorage.clear();
+      // Für Testzwecke: Nur employee-Key leeren, nicht alles
+      await AsyncStorage.removeItem('employee');
       
       // Prüfe ob es gespeicherte Mitarbeiter-Daten gibt
       const storedEmployee = await AsyncStorage.getItem('employee');
