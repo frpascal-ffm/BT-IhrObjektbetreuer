@@ -79,10 +79,30 @@ export interface Employee {
   avatar?: string;
 }
 
-// Properties
+// Helper function to get current user ID
+const getCurrentUserId = (): string => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('No authenticated user found');
+  }
+  return user.uid;
+};
+
+// Helper function to get current user ID with error handling
+const getCurrentUserIdSafe = (): string | null => {
+  const user = auth.currentUser;
+  return user ? user.uid : null;
+};
+
+// Properties - Now stored under users/-USERID-/properties
 export const propertiesService = {
   async getAll(): Promise<Property[]> {
-    const querySnapshot = await getDocs(collection(db, 'properties'));
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      console.warn('No authenticated user found, returning empty properties array');
+      return [];
+    }
+    const querySnapshot = await getDocs(collection(db, 'users', userId, 'properties'));
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -91,18 +111,37 @@ export const propertiesService = {
 
   // Real-time subscription methods
   subscribeToAll(callback: (properties: Property[]) => void, onError?: (error: any) => void): Unsubscribe {
-    const q = query(collection(db, 'properties'), orderBy('createdAt', 'desc'));
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      console.warn('No authenticated user found, returning empty subscription');
+      // Return a dummy unsubscribe function
+      return () => {};
+    }
+    console.log('Creating properties subscription for user:', userId);
+    const q = query(collection(db, 'users', userId, 'properties'));
     return onSnapshot(q, (querySnapshot) => {
+      console.log('Properties snapshot received:', querySnapshot.docs.length, 'documents');
       const properties = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Property[];
+      // Sort by createdAt in memory since serverTimestamp might not be available immediately
+      properties.sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+          return b.createdAt.toMillis() - a.createdAt.toMillis();
+        }
+        return 0;
+      });
       callback(properties);
     }, onError);
   },
 
   async getById(id: string): Promise<Property | null> {
-    const docRef = doc(db, 'properties', id);
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      throw new Error('No authenticated user found');
+    }
+    const docRef = doc(db, 'users', userId, 'properties', id);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -112,16 +151,26 @@ export const propertiesService = {
   },
 
   async create(property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const docRef = await addDoc(collection(db, 'properties'), {
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      throw new Error('No authenticated user found');
+    }
+    console.log('Creating property for user:', userId, 'with data:', property);
+    const docRef = await addDoc(collection(db, 'users', userId, 'properties'), {
       ...property,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    console.log('Property created successfully with ID:', docRef.id);
     return docRef.id;
   },
 
   async update(id: string, property: Partial<Property>): Promise<void> {
-    const docRef = doc(db, 'properties', id);
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      throw new Error('No authenticated user found');
+    }
+    const docRef = doc(db, 'users', userId, 'properties', id);
     await updateDoc(docRef, {
       ...property,
       updatedAt: serverTimestamp()
@@ -129,15 +178,24 @@ export const propertiesService = {
   },
 
   async delete(id: string): Promise<void> {
-    const docRef = doc(db, 'properties', id);
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      throw new Error('No authenticated user found');
+    }
+    const docRef = doc(db, 'users', userId, 'properties', id);
     await deleteDoc(docRef);
   }
 };
 
-// Jobs
+// Jobs - Now stored under users/-USERID-/jobs
 export const jobsService = {
   async getAll(): Promise<Job[]> {
-    const querySnapshot = await getDocs(collection(db, 'jobs'));
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      console.warn('No authenticated user found, returning empty jobs array');
+      return [];
+    }
+    const querySnapshot = await getDocs(collection(db, 'users', userId, 'jobs'));
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -146,51 +204,12 @@ export const jobsService = {
 
   // Real-time subscription methods
   subscribeToAll(callback: (jobs: Job[]) => void, onError?: (error: any) => void): Unsubscribe {
-    const q = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (querySnapshot) => {
-      const jobs = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Job[];
-      callback(jobs);
-    }, onError);
-  },
-
-  subscribeToByProperty(propertyId: string, callback: (jobs: Job[]) => void, onError?: (error: any) => void): Unsubscribe {
-    const q = query(
-      collection(db, 'jobs'),
-      where('propertyId', '==', propertyId),
-      orderBy('createdAt', 'desc')
-    );
-    return onSnapshot(q, (querySnapshot) => {
-      const jobs = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Job[];
-      callback(jobs);
-    }, onError);
-  },
-
-  subscribeToByStatus(status: Job['status'], callback: (jobs: Job[]) => void, onError?: (error: any) => void): Unsubscribe {
-    const q = query(
-      collection(db, 'jobs'),
-      where('status', '==', status),
-      orderBy('createdAt', 'desc')
-    );
-    return onSnapshot(q, (querySnapshot) => {
-      const jobs = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Job[];
-      callback(jobs);
-    }, onError);
-  },
-
-  subscribeToByAssignedTo(assignedTo: string, callback: (jobs: Job[]) => void, onError?: (error: any) => void): Unsubscribe {
-    const q = query(
-      collection(db, 'jobs'),
-      where('assignedTo', '==', assignedTo)
-    );
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      console.warn('No authenticated user found, returning empty subscription');
+      return () => {};
+    }
+    const q = query(collection(db, 'users', userId, 'jobs'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (querySnapshot) => {
       const jobs = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -201,7 +220,8 @@ export const jobsService = {
   },
 
   async getById(id: string): Promise<Job | null> {
-    const docRef = doc(db, 'jobs', id);
+    const userId = getCurrentUserId();
+    const docRef = doc(db, 'users', userId, 'jobs', id);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -210,22 +230,35 @@ export const jobsService = {
     return null;
   },
 
-  async getByProperty(propertyId: string): Promise<Job[]> {
-    const q = query(
-      collection(db, 'jobs'),
-      where('propertyId', '==', propertyId),
-      orderBy('createdAt', 'desc')
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Job[];
+  async create(job: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const userId = getCurrentUserId();
+    const docRef = await addDoc(collection(db, 'users', userId, 'jobs'), {
+      ...job,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return docRef.id;
+  },
+
+  async update(id: string, job: Partial<Job>): Promise<void> {
+    const userId = getCurrentUserId();
+    const docRef = doc(db, 'users', userId, 'jobs', id);
+    await updateDoc(docRef, {
+      ...job,
+      updatedAt: serverTimestamp()
+    });
+  },
+
+  async delete(id: string): Promise<void> {
+    const userId = getCurrentUserId();
+    const docRef = doc(db, 'users', userId, 'jobs', id);
+    await deleteDoc(docRef);
   },
 
   async getByStatus(status: Job['status']): Promise<Job[]> {
+    const userId = getCurrentUserId();
     const q = query(
-      collection(db, 'jobs'),
+      collection(db, 'users', userId, 'jobs'),
       where('status', '==', status),
       orderBy('createdAt', 'desc')
     );
@@ -237,51 +270,29 @@ export const jobsService = {
   },
 
   async getByAssignedTo(assignedTo: string): Promise<Job[]> {
+    const userId = getCurrentUserId();
     const q = query(
-      collection(db, 'jobs'),
-      where('assignedTo', '==', assignedTo)
+      collection(db, 'users', userId, 'jobs'),
+      where('assignedTo', '==', assignedTo),
+      orderBy('createdAt', 'desc')
     );
     const querySnapshot = await getDocs(q);
-    const jobs = querySnapshot.docs.map(doc => ({
+    return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Job[];
-    
-    // Sort in memory as temporary fix while index builds
-    return jobs.sort((a, b) => {
-      const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
-      const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
-      return bTime.getTime() - aTime.getTime();
-    });
-  },
-
-  async create(job: Omit<Job, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const docRef = await addDoc(collection(db, 'jobs'), {
-      ...job,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    return docRef.id;
-  },
-
-  async update(id: string, job: Partial<Job>): Promise<void> {
-    const docRef = doc(db, 'jobs', id);
-    await updateDoc(docRef, {
-      ...job,
-      updatedAt: serverTimestamp()
-    });
-  },
-
-  async delete(id: string): Promise<void> {
-    const docRef = doc(db, 'jobs', id);
-    await deleteDoc(docRef);
   }
 };
 
-// Employees
+// Employees - Now stored under users/-USERID-/employees
 export const employeesService = {
   async getAll(): Promise<Employee[]> {
-    const querySnapshot = await getDocs(collection(db, 'employees'));
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      console.warn('No authenticated user found, returning empty employees array');
+      return [];
+    }
+    const querySnapshot = await getDocs(collection(db, 'users', userId, 'employees'));
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -290,7 +301,12 @@ export const employeesService = {
 
   // Real-time subscription methods
   subscribeToAll(callback: (employees: Employee[]) => void, onError?: (error: any) => void): Unsubscribe {
-    const q = query(collection(db, 'employees'), orderBy('createdAt', 'desc'));
+    const userId = getCurrentUserIdSafe();
+    if (!userId) {
+      console.warn('No authenticated user found, returning empty subscription');
+      return () => {};
+    }
+    const q = query(collection(db, 'users', userId, 'employees'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (querySnapshot) => {
       const employees = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -301,7 +317,8 @@ export const employeesService = {
   },
 
   async getById(id: string): Promise<Employee | null> {
-    const docRef = doc(db, 'employees', id);
+    const userId = getCurrentUserId();
+    const docRef = doc(db, 'users', userId, 'employees', id);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -311,8 +328,9 @@ export const employeesService = {
   },
 
   async getByRole(role: Employee['role']): Promise<Employee[]> {
+    const userId = getCurrentUserId();
     const q = query(
-      collection(db, 'employees'),
+      collection(db, 'users', userId, 'employees'),
       where('role', '==', role),
       where('status', '==', 'active')
     );
@@ -324,8 +342,9 @@ export const employeesService = {
   },
 
   async getByEmail(email: string): Promise<Employee | null> {
+    const userId = getCurrentUserId();
     const q = query(
-      collection(db, 'employees'),
+      collection(db, 'users', userId, 'employees'),
       where('email', '==', email)
     );
     const querySnapshot = await getDocs(q);
@@ -351,9 +370,10 @@ export const employeesService = {
       const firebaseUid = userCredential.user.uid;
       console.log('Firebase Auth user created successfully:', { uid: firebaseUid, email: employee.email });
       
-      // Then create Firestore document without password
+      // Then create Firestore document under the current user's collection
+      const userId = getCurrentUserId();
       const { password, ...employeeData } = employee;
-      const docRef = await addDoc(collection(db, 'employees'), {
+      const docRef = await addDoc(collection(db, 'users', userId, 'employees'), {
         ...employeeData,
         firebaseUid,
         createdAt: serverTimestamp(),
@@ -370,7 +390,8 @@ export const employeesService = {
   },
 
   async update(id: string, employee: Partial<Employee>): Promise<void> {
-    const docRef = doc(db, 'employees', id);
+    const userId = getCurrentUserId();
+    const docRef = doc(db, 'users', userId, 'employees', id);
     await updateDoc(docRef, {
       ...employee,
       updatedAt: serverTimestamp()
@@ -393,26 +414,10 @@ export const employeesService = {
     }
     
     // Delete Firestore document
-    const docRef = doc(db, 'employees', id);
+    const userId = getCurrentUserId();
+    const docRef = doc(db, 'users', userId, 'employees', id);
     await deleteDoc(docRef);
   }
-}; 
-
-// Helper function to set admin custom claims
-// Note: This requires Firebase Admin SDK on the backend
-// For now, we'll create a placeholder function
-export const setAdminCustomClaims = async (uid: string, isAdmin: boolean = false) => {
-  // This function would typically call a Cloud Function or backend API
-  // to set custom claims using Firebase Admin SDK
-  console.log(`Would set admin claims for UID ${uid}: ${isAdmin}`);
-  
-  // In production, you would implement this as:
-  // 1. Call a Cloud Function with the UID and admin status
-  // 2. The Cloud Function uses Admin SDK to set custom claims
-  // 3. The claims are then available in Firestore rules
-  
-  // For now, we'll just log the intention
-  return Promise.resolve();
 };
 
 // Debug utility function to check employee status

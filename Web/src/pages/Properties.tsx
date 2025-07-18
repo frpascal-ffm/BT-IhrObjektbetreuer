@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Property } from '@/lib/firestore';
 import PropertyCard from '@/components/PropertyCard';
@@ -14,6 +13,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { propertiesService } from '@/lib/firestore';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/AuthContext';
 
 const Properties = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -27,19 +27,70 @@ const Properties = () => {
   });
 
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const { currentUser, appUser, loading: authLoading } = useAuth();
 
-  // Fetch properties using React Query
-  const { data: properties = [], isLoading } = useQuery({
-    queryKey: ['properties'],
-    queryFn: propertiesService.getAll,
-  });
+  // Real-time data state
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [subscriptionActive, setSubscriptionActive] = useState(false);
+  const subscriptionRef = useRef<(() => void) | null>(null);
 
-  // Create new property mutation
-  const createPropertyMutation = useMutation({
-    mutationFn: propertiesService.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['properties'] });
+  // Real-time subscriptions
+  useEffect(() => {
+    // Only subscribe if user is authenticated
+    if (!currentUser || authLoading) {
+      setLoading(true);
+      return;
+    }
+
+    console.log('Setting up properties subscription for user:', currentUser.uid);
+    setLoading(true);
+    
+    // Subscribe to real-time updates with error handling
+    const unsubscribeProperties = propertiesService.subscribeToAll((propertiesData) => {
+      console.log('Properties subscription received data:', propertiesData.length, 'properties');
+      console.log('Properties data:', propertiesData);
+      setProperties(propertiesData);
+      setLoading(false);
+      setSubscriptionActive(true);
+    }, (error) => {
+      console.error('Error in properties subscription:', error);
+      setSubscriptionActive(false);
+      if (error.code === 'permission-denied') {
+        console.warn('Permission denied for properties collection');
+        toast.error('Keine Berechtigung für Liegenschaften');
+      } else {
+        toast.error('Fehler beim Laden der Liegenschaften');
+      }
+      setLoading(false);
+    });
+
+    // Store the unsubscribe function
+    subscriptionRef.current = unsubscribeProperties;
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      console.log('Cleaning up properties subscription');
+      if (subscriptionRef.current) {
+        subscriptionRef.current();
+        subscriptionRef.current = null;
+      }
+    };
+  }, [currentUser?.uid, authLoading]); // Only depend on user ID, not the entire user object
+
+  // Create new property function
+  const createProperty = async (propertyData: Omit<Property, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      setIsCreating(true);
+      const propertyId = await propertiesService.create(propertyData);
+      console.log('Property created with ID:', propertyId);
+      
+      // Manually refresh the properties list to ensure immediate update
+      const updatedProperties = await propertiesService.getAll();
+      setProperties(updatedProperties);
+      console.log('Properties refreshed after creation:', updatedProperties.length, 'properties');
+      
       setDialogOpen(false);
       setNewProperty({
         name: '',
@@ -48,12 +99,13 @@ const Properties = () => {
         status: 'active',
       });
       toast.success('Liegenschaft erfolgreich erstellt');
-    },
-    onError: (error) => {
+    } catch (error) {
       console.error('Error creating property:', error);
       toast.error('Fehler beim Erstellen der Liegenschaft');
-    },
-  });
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   // Filter properties based on search
   const filteredProperties = searchQuery
@@ -73,7 +125,7 @@ const Properties = () => {
       return;
     }
 
-    createPropertyMutation.mutate({
+    await createProperty({
       name: newProperty.name,
       address: newProperty.address,
       type: newProperty.type,
@@ -96,7 +148,19 @@ const Properties = () => {
             />
           </div>
           
-          {isLoading ? (
+          {authLoading ? (
+            <div className="text-center py-12 text-gray-500">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              Authentifizierung...
+            </div>
+          ) : !currentUser ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 mb-4">Bitte melden Sie sich an, um Liegenschaften zu verwalten.</p>
+              <Button onClick={() => navigate('/login')}>
+                Anmelden
+              </Button>
+            </div>
+          ) : loading ? (
             <div className="text-center py-12 text-gray-500">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
               Lade Liegenschaften...
@@ -151,7 +215,7 @@ const Properties = () => {
                 onChange={(e) => setNewProperty({...newProperty, name: e.target.value})}
                 placeholder="z.B. Apartment-Komplex Nord"
                 required
-                disabled={createPropertyMutation.isPending}
+                disabled={isCreating}
               />
             </div>
             
@@ -173,7 +237,7 @@ const Properties = () => {
                 }}
                 placeholder="Straße und Hausnummer eingeben..."
                 required
-                disabled={createPropertyMutation.isPending}
+                disabled={isCreating}
               />
             </div>
             
@@ -185,7 +249,7 @@ const Properties = () => {
                 onChange={(e) => setNewProperty({...newProperty, type: e.target.value})}
                 placeholder="z.B. Wohnkomplex, Bürogebäude, etc."
                 required
-                disabled={createPropertyMutation.isPending}
+                disabled={isCreating}
               />
             </div>
             
@@ -196,7 +260,7 @@ const Properties = () => {
                 value={newProperty.description || ''}
                 onChange={(e) => setNewProperty({...newProperty, description: e.target.value})}
                 placeholder="Optionale Beschreibung"
-                disabled={createPropertyMutation.isPending}
+                disabled={isCreating}
               />
             </div>
             
@@ -205,15 +269,15 @@ const Properties = () => {
                 type="button" 
                 variant="outline" 
                 onClick={() => setDialogOpen(false)}
-                disabled={createPropertyMutation.isPending}
+                disabled={isCreating}
               >
                 Abbrechen
               </Button>
               <Button 
                 type="submit"
-                disabled={createPropertyMutation.isPending}
+                disabled={isCreating}
               >
-                {createPropertyMutation.isPending && (
+                {isCreating && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 Speichern

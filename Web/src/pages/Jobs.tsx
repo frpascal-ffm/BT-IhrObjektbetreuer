@@ -19,7 +19,7 @@ import { jobsService, propertiesService, employeesService, type Job as Firestore
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import DebugInfo from '@/components/DebugInfo';
+
 
 const Jobs = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -264,9 +264,6 @@ const Jobs = () => {
         <Header title="Aufträge" toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          {/* Temporary debug info - remove in production */}
-          <DebugInfo />
-          
           <div className="mb-6 flex flex-col sm:flex-row justify-between gap-3">
             <div className="flex flex-1 max-w-md items-center gap-3">
               <div className="relative flex-1">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Building, ListTodo, Home, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,8 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+  const location = useLocation();
+  
   const sidebarLinks = [
     {
       icon: <Home size={20} />,
@@ -59,6 +61,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  // Check if any child route is active for a given parent
+  const isParentActive = (children: any[]) => {
+    return children.some(child => location.pathname === child.path);
+  };
+
+  // Check if a route should be highlighted, excluding Baustellen routes from Liegenschaftsaufträge
+  const isRouteActive = (path: string) => {
+    if (path === '/jobs') {
+      // Only highlight Liegenschaftsaufträge if we're exactly on /jobs or /jobs/:id (but not Baustellen routes)
+      return location.pathname === '/jobs' || 
+             (location.pathname.startsWith('/jobs/') && 
+              !location.pathname.startsWith('/jobs/baustellen/'));
+    }
+    return location.pathname === path;
+  };
+
   return (
     <>
       {/* Mobile overlay */}
@@ -84,7 +102,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {sidebarLinks.map((link) => (
             link.children ? (
               <div key={link.label}>
-                <div className="flex items-center gap-3 px-3 py-2 font-semibold text-sm text-gray-700">
+                <div className={cn(
+                  "flex items-center gap-3 px-3 py-2 font-semibold text-sm",
+                  isParentActive(link.children)
+                    ? "text-primary bg-primary/10 rounded-md"
+                    : "text-gray-700"
+                )}>
                   {link.icon}
                   <span>{link.label}</span>
                 </div>
@@ -113,7 +136,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 onClick={() => onClose()}
                 className={({ isActive }) => cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md w-full text-sm",
-                  isActive 
+                  isRouteActive(link.path)
                     ? "bg-primary text-primary-foreground" 
                     : "text-gray-700 hover:bg-gray-100"
                 )}
