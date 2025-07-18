@@ -83,7 +83,7 @@ export const mockProperties: Property[] = [
 export const mockJobs: Job[] = [
   {
     id: 'job-1',
-    propertyId: 'property-1',
+    propertyId: 'prop-1',
     title: 'Heizungsreparatur in Wohnung 12',
     description: 'Die Heizung in Wohnung 12 funktioniert nicht richtig. Der Mieter berichtet, dass sie nicht über 18 Grad erhitzt.',
     status: 'open',
@@ -91,10 +91,11 @@ export const mockJobs: Job[] = [
     updatedAt: new Date('2023-06-15'),
     createdBy: 'max.mustermann@example.com',
     priority: 'high',
+    jobType: 'sonderauftrag',
   },
   {
     id: 'job-2',
-    propertyId: 'property-2',
+    propertyId: 'prop-2',
     title: 'Jährliche Inspektion der Brandmelder',
     description: 'Routinemäßige Inspektion aller Brandmelder im Gebäude durchführen.',
     status: 'in-progress',
@@ -103,10 +104,11 @@ export const mockJobs: Job[] = [
     createdBy: 'thomas.weber@example.com',
     assignedTo: 'thomas.weber@example.com',
     dueDate: new Date('2023-07-10'),
+    jobType: 'liegenschaftsauftrag',
   },
   {
     id: 'job-3',
-    propertyId: 'property-1',
+    propertyId: 'prop-1',
     title: 'Graffiti an der Außenwand entfernen',
     description: 'Graffiti an der Nordseite des Gebäudes entfernen und die Wand neu streichen.',
     status: 'closed',
@@ -114,10 +116,11 @@ export const mockJobs: Job[] = [
     updatedAt: new Date('2023-06-05'),
     createdBy: 'anna.schmidt@example.com',
     completedAt: new Date('2023-06-05'),
+    jobType: 'liegenschaftsauftrag',
   },
   {
     id: 'job-4',
-    propertyId: 'property-3',
+    propertyId: 'prop-3',
     title: 'Wasserrohrbruch in der Tiefgarage',
     description: 'Wasserrohrbruch in der Tiefgarage neben Stellplatz 15. Der Bereich ist bereits abgesperrt.',
     status: 'open',
@@ -125,10 +128,11 @@ export const mockJobs: Job[] = [
     updatedAt: new Date('2023-06-18'),
     createdBy: 'max.mustermann@example.com',
     priority: 'high',
+    jobType: 'wasserschaden',
   },
   {
     id: 'job-5',
-    propertyId: 'property-4',
+    propertyId: 'prop-4',
     title: 'Neuer Schließanlage installieren',
     description: 'Installation einer neuen Schließanlage für das gesamte Gebäude nach mehreren verlorenen Schlüsseln.',
     status: 'canceled',
@@ -136,6 +140,7 @@ export const mockJobs: Job[] = [
     updatedAt: new Date('2023-05-12'),
     createdBy: 'julia.becker@example.com',
     notes: 'Storniert aufgrund von Budgetkürzungen.',
+    jobType: 'sonderauftrag',
   },
   {
     id: 'job-6',
@@ -147,6 +152,7 @@ export const mockJobs: Job[] = [
     createdAt: new Date('2023-10-09'),
     dueDate: new Date('2023-11-30'),
     notes: 'Planung für das Frühjahr 2024.',
+    jobType: 'liegenschaftsauftrag',
   },
   {
     id: 'job-7',
@@ -159,6 +165,7 @@ export const mockJobs: Job[] = [
     dueDate: new Date('2023-12-01'),
     assignedTo: 'Lift & Aufzug GmbH',
     notes: 'Projekt wurde aus Budgetgründen auf nächstes Jahr verschoben.',
+    jobType: 'baustelle',
   }
 ];
 

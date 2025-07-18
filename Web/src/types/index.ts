@@ -32,7 +32,7 @@ export interface Job {
   notes?: { id: string; text: string; createdAt: Date; user: string }[];
   priority?: 'low' | 'medium' | 'high';
   dueDate?: Date;
-  jobType?: 'wasserschaden' | 'sonderauftrag';
+  jobType?: 'wasserschaden' | 'sonderauftrag' | 'liegenschaftsauftrag' | 'baustelle';
 }
 
 // Status badge mapping for visual representation
