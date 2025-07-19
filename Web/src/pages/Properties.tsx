@@ -2,14 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Property } from '@/lib/firestore';
-import PropertyCard from '@/components/PropertyCard';
 import PropertySearchBar from '@/components/PropertySearchBar';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Building, Euro } from 'lucide-react';
 import { propertiesService } from '@/lib/firestore';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
 import { toast } from 'sonner';
@@ -24,6 +23,7 @@ const Properties = () => {
     address: '',
     type: '',
     status: 'active',
+    monthlyIncome: 0,
   });
 
   const navigate = useNavigate();
@@ -97,6 +97,7 @@ const Properties = () => {
         address: '',
         type: '',
         status: 'active',
+        monthlyIncome: 0,
       });
       toast.success('Liegenschaft erfolgreich erstellt');
     } catch (error) {
@@ -130,7 +131,7 @@ const Properties = () => {
       address: newProperty.address,
       type: newProperty.type,
       status: newProperty.status || 'active',
-      description: newProperty.description || '',
+      monthlyIncome: newProperty.monthlyIncome || 0,
     });
   };
 
@@ -176,10 +177,100 @@ const Properties = () => {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredProperties.map((property) => (
-                <PropertyCard key={property.id} property={property} />
-              ))}
+            <div className="bg-white rounded-lg shadow">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Liegenschaft
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Adresse
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Typ
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Monatliche Einnahmen
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Aktionen
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredProperties.map((property) => (
+                      <tr 
+                        key={property.id} 
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => navigate(`/properties/${property.id}`)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <Building className="h-5 w-5 text-primary" />
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {property.name}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{property.address}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{property.type}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            property.status === 'active' 
+                              ? 'bg-green-100 text-green-800' 
+                              : property.status === 'inactive'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {property.status === 'active' ? 'Aktiv' : 
+                             property.status === 'inactive' ? 'Inaktiv' : 'Wartung'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {property.monthlyIncome && property.monthlyIncome > 0 ? (
+                            <div className="flex items-center text-sm text-green-600 font-medium">
+                              <Euro className="h-4 w-4 mr-1" />
+                              {property.monthlyIncome.toLocaleString('de-DE', { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 2 
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-500">Nicht angegeben</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/properties/${property.id}`);
+                            }}
+                          >
+                            Details
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </main>
@@ -254,12 +345,15 @@ const Properties = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="description">Beschreibung</Label>
+              <Label htmlFor="monthlyIncome">Monatliche Einnahmen (€)</Label>
               <Input
-                id="description"
-                value={newProperty.description || ''}
-                onChange={(e) => setNewProperty({...newProperty, description: e.target.value})}
-                placeholder="Optionale Beschreibung"
+                id="monthlyIncome"
+                type="number"
+                min="0"
+                step="0.01"
+                value={newProperty.monthlyIncome || ''}
+                onChange={(e) => setNewProperty({...newProperty, monthlyIncome: parseFloat(e.target.value) || 0})}
+                placeholder="0.00"
                 disabled={isCreating}
               />
             </div>

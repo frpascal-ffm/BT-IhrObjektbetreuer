@@ -9,16 +9,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { mockJobs, mockEmployees, mockProperties } from '@/mock-data';
-import { Job, Property, JobStatus } from '@/types';
-import { Search, Eye, Edit, Trash2, Calendar as CalendarIcon, Filter, X } from 'lucide-react';
+import { Job, JobStatus } from '@/types';
+import { Property } from '@/lib/firestore';
+import { Search, Eye, Edit, Trash2, Calendar as CalendarIcon, Filter, X, Check, ChevronDown } from 'lucide-react';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 const MeineAuftraege = () => {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string[]>(['open', 'in-progress', 'canceled']);
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
@@ -41,8 +45,8 @@ const MeineAuftraege = () => {
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Status filter
-    const matchesStatus = statusFilter === 'all' || job.status === statusFilter;
+    // Status filter - exclude completed jobs by default
+    const matchesStatus = statusFilter.includes(job.status);
 
     // Date range filter
     let matchesDateRange = true;
@@ -66,12 +70,56 @@ const MeineAuftraege = () => {
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery('');
-    setStatusFilter('all');
+    setStatusFilter(['open', 'in-progress', 'canceled']);
     setDateRange({ from: undefined, to: undefined });
   };
 
   // Check if any filters are active
-  const hasActiveFilters = searchQuery || statusFilter !== 'all' || dateRange.from || dateRange.to;
+  const hasActiveFilters = searchQuery || 
+    !statusFilter.includes('open') || 
+    !statusFilter.includes('in-progress') || 
+    !statusFilter.includes('canceled') || 
+    dateRange.from || 
+    dateRange.to;
+
+  // Handle status filter changes
+  const handleStatusChange = (status: string, checked: boolean) => {
+    if (checked) {
+      setStatusFilter(prev => [...prev, status]);
+    } else {
+      setStatusFilter(prev => prev.filter(s => s !== status));
+    }
+  };
+
+  // Handle row click to navigate to detail page
+  const handleRowClick = (jobId: string) => {
+    navigate(`/jobs/${jobId}`);
+  };
+
+  // Handle action button clicks (prevent row click)
+  const handleActionClick = (e: React.MouseEvent, action: string, jobId: string) => {
+    e.stopPropagation();
+    if (action === 'edit') {
+      navigate(`/jobs/${jobId}/edit`);
+    } else if (action === 'delete') {
+      // Handle delete action
+      console.log('Delete job:', jobId);
+    } else if (action === 'complete') {
+      // Mark job as completed
+      setJobs(prevJobs => 
+        prevJobs.map(job => 
+          job.id === jobId 
+            ? { 
+                ...job, 
+                status: 'closed' as JobStatus,
+                completedAt: new Date(),
+                updatedAt: new Date()
+              }
+            : job
+        )
+      );
+    }
+  };
 
   // Hilfsfunktion für Property-Name und Adresse
   const getPropertyInfo = (propertyId: string) => {
@@ -103,6 +151,17 @@ const MeineAuftraege = () => {
     });
   };
 
+  // Get status display name
+  const getStatusDisplayName = (status: string) => {
+    switch (status) {
+      case 'open': return 'Offen';
+      case 'in-progress': return 'In Bearbeitung';
+      case 'closed': return 'Abgeschlossen';
+      case 'canceled': return 'Storniert';
+      default: return status;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -123,19 +182,40 @@ const MeineAuftraege = () => {
                 />
               </div>
 
-              {/* Status Filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Status wählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle Status</SelectItem>
-                  <SelectItem value="open">Offen</SelectItem>
-                  <SelectItem value="in-progress">In Bearbeitung</SelectItem>
-                  <SelectItem value="closed">Abgeschlossen</SelectItem>
-                  <SelectItem value="canceled">Storniert</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Status Filter - Multiselect */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-[200px] justify-between"
+                  >
+                    <span>Status ({statusFilter.length})</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-4" align="start">
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Status auswählen</h4>
+                    <div className="space-y-2">
+                      {(['open', 'in-progress', 'canceled', 'closed'] as const).map((status) => (
+                        <div key={status} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={status}
+                            checked={statusFilter.includes(status)}
+                            onCheckedChange={(checked) => handleStatusChange(status, checked as boolean)}
+                          />
+                          <label
+                            htmlFor={status}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {getStatusDisplayName(status)}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               {/* Date Range Picker */}
               <Popover>
@@ -197,11 +277,9 @@ const MeineAuftraege = () => {
                     Suche: "{searchQuery}"
                   </span>
                 )}
-                {statusFilter !== 'all' && (
+                {statusFilter.length > 0 && (
                   <span className="bg-green-100 text-green-800 px-2 py-1 rounded-md">
-                    Status: {statusFilter === 'open' ? 'Offen' : 
-                             statusFilter === 'in-progress' ? 'In Bearbeitung' :
-                             statusFilter === 'closed' ? 'Abgeschlossen' : 'Storniert'}
+                    Status: {statusFilter.map(s => getStatusDisplayName(s)).join(', ')}
                   </span>
                 )}
                 {dateRange.from && (
@@ -236,8 +314,13 @@ const MeineAuftraege = () => {
                   ) : (
                     filteredJobs.map(job => {
                       const propertyInfo = getPropertyInfo(job.propertyId);
+                      const isCompleted = job.status === 'closed';
                       return (
-                        <TableRow key={job.id} className="hover:bg-gray-50">
+                        <TableRow 
+                          key={job.id} 
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handleRowClick(job.id)}
+                        >
                           <TableCell className="font-medium">
                             {formatDate(job.createdAt)}
                           </TableCell>
@@ -259,19 +342,26 @@ const MeineAuftraege = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                title="Details anzeigen"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                              {!isCompleted && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  title="Als erledigt markieren"
+                                  onClick={(e) => handleActionClick(e, 'complete', job.id)}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {isCompleted && (
+                                <div className="h-8 w-8"></div>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0"
                                 title="Bearbeiten"
+                                onClick={(e) => handleActionClick(e, 'edit', job.id)}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -280,6 +370,7 @@ const MeineAuftraege = () => {
                                 size="sm"
                                 className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                                 title="Löschen"
+                                onClick={(e) => handleActionClick(e, 'delete', job.id)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

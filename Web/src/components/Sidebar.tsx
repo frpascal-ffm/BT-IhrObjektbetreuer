@@ -1,8 +1,18 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { Building, ListTodo, Home, Users } from 'lucide-react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Building, ListTodo, Home, Users, DollarSign, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,6 +21,21 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
+  
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const getInitials = (email: string) => {
+    return email.split('@')[0].substring(0, 2).toUpperCase();
+  };
   
   const sidebarLinks = [
     {
@@ -51,6 +76,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       icon: <Users size={20} />,
       label: 'Mitarbeiter',
       path: '/employees'
+    },
+    {
+      icon: <DollarSign size={20} />,
+      label: 'Bilanz',
+      path: '/balance'
     }
   ];
 
@@ -90,7 +120,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <div 
         className={cn(
-          "fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 z-50 transition-transform duration-300 lg:translate-x-0 lg:static lg:z-0",
+          "fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 z-50 transition-transform duration-300 lg:translate-x-0 lg:static lg:z-0 flex flex-col",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -98,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <h2 className="text-lg font-bold text-primary">Objektverwaltung</h2>
         </div>
         
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1 flex-1">
           {sidebarLinks.map((link) => (
             link.children ? (
               <div key={link.label}>
@@ -147,6 +177,54 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             )
           ))}
         </nav>
+        
+        {/* User Profile Section */}
+        {currentUser && (
+          <div className="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-white">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start gap-3 h-auto p-3 hover:bg-gray-100 rounded-none"
+                >
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {getInitials(currentUser.email || '')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col items-start min-w-0 flex-1">
+                    <span className="text-sm font-medium text-gray-900 truncate w-full">
+                      {currentUser.email}
+                    </span>
+                    <span className="text-xs text-gray-500">Angemeldet</span>
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {currentUser.email}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      Angemeldet
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profil</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Abmelden</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
     </>
   );

@@ -42,7 +42,7 @@ export interface Property {
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   owner?: string;
-  description?: string;
+  monthlyIncome?: number;
   imageUrl?: string;
 }
 

@@ -9,8 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Property } from '@/types';
-import { ArrowLeft, Edit, Save, X, Building, Calendar, MapPin, Loader2, AlertTriangle } from 'lucide-react';
+import { Property } from '@/lib/firestore';
+import { ArrowLeft, Edit, Save, X, Building, Calendar, MapPin, Loader2, AlertTriangle, Euro } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { propertiesService, jobsService, type Property as FirestoreProperty, type Job as FirestoreJob } from '@/lib/firestore';
@@ -229,21 +229,29 @@ const PropertyDetails = () => {
                     </div>
                   </div>
 
-                  {property.description && (
-                    <div>
-                      <Label className="text-sm font-medium text-gray-500">Beschreibung</Label>
-                      {isEditing ? (
-                        <Textarea
-                          value={editedProperty.description || property.description}
-                          onChange={(e) => setEditedProperty({...editedProperty, description: e.target.value})}
-                          className="mt-1"
-                          rows={3}
-                        />
-                      ) : (
-                        <p className="mt-1 text-gray-700">{property.description}</p>
-                      )}
-                    </div>
-                  )}
+                  <div>
+                    <Label className="text-sm font-medium text-gray-500">Monatliche Einnahmen</Label>
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editedProperty.monthlyIncome || property.monthlyIncome || ''}
+                        onChange={(e) => setEditedProperty({...editedProperty, monthlyIncome: parseFloat(e.target.value) || 0})}
+                        className="mt-1"
+                      />
+                    ) : (
+                      <div className="mt-1 flex items-center text-gray-700">
+                        <Euro className="mr-2 h-4 w-4" />
+                        <span className="font-medium">
+                          {property.monthlyIncome ? 
+                            `${property.monthlyIncome.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€` : 
+                            'Nicht angegeben'
+                          }
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                   {property.owner && (
                     <div>

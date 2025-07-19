@@ -17,6 +17,7 @@ import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Employees from "./pages/Employees";
 import MeineAuftraege from "./pages/MeineAuftraege";
+import Balance from "./pages/Balance";
 
 // Optimierte QueryClient-Konfiguration
 const queryClient = new QueryClient({
@@ -93,6 +94,11 @@ const App = () => (
             <Route path="/meine-auftraege" element={
               <ProtectedRoute>
                 <MeineAuftraege />
+              </ProtectedRoute>
+            } />
+            <Route path="/balance" element={
+              <ProtectedRoute>
+                <Balance />
               </ProtectedRoute>
             } />
             <Route path="/firebase/firestore" element={

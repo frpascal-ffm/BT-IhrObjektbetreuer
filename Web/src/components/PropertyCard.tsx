@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Property } from '@/types';
+import { Property } from '@/lib/firestore';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Building } from 'lucide-react';
+import { Building, Euro } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface PropertyCardProps {
@@ -31,8 +31,13 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0 border-t border-gray-100 flex justify-between text-xs text-gray-500">
-        <span>{property.city}</span>
         <span>{property.type}</span>
+        {property.monthlyIncome && property.monthlyIncome > 0 && (
+          <span className="flex items-center gap-1 text-green-600 font-medium">
+            <Euro className="h-3 w-3" />
+            {property.monthlyIncome.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+          </span>
+        )}
       </CardFooter>
     </Card>
   );
